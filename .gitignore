@@ -1,8 +1,54 @@
-Thumbs.db
-Desktop.ini
-.DS_Store
+# Unity specific
+*.meta
+*.pidb
+*.pdb
+*.mdb
+*.opendb
+*.VC.db
+*.VC.opendb
 
-/Library
-/Logs
-/UserSettings
-/Temp
+# Compiled file types
+*.dll
+*.exe
+*.so
+*.dylib
+*.pyc
+*.o
+*.obj
+*.lib
+
+# Cache files
+[Ll]ibrary/
+[Tt]emp/
+[Oo]bj/
+[Bb]uild/
+[Bb]uilds/
+[Aa]ssets/AssetStoreTools*
+
+# Logs
+*.log
+*.stacktrace
+
+# Unity package-specific cache
+.npm/
+
+# JetBrains Rider
+.idea/
+*.sln.iml
+*.userprefs
+
+# VSCode
+.vscode/
+
+# OS specific
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Ignore specific file types for package content
+# Only keep .cs, .shader, .json, etc., essential for the package
+*.csproj
+*.unity
+*.unitypackage
+*.mat
+*.prefab
