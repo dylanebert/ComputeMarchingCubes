@@ -3,79 +3,53 @@ using UnityEngine.UIElements;
 using Unity.Properties;
 
 namespace MarchingCubes {
+    public sealed class VolumeDataVisualizer : MonoBehaviour {
+        [SerializeField] private TextAsset _volumeData = null;
+        [SerializeField] private Vector3Int _dimensions = new(256, 256, 113);
+        [SerializeField] private float _gridScale = 4.0f / 256;
+        [SerializeField] private int _triangleBudget = 65536 * 16;
 
-sealed class VolumeDataVisualizer : MonoBehaviour
-{
-    #region Editable attributes
+        [SerializeField, HideInInspector] private ComputeShader _converterCompute = null;
+        [SerializeField, HideInInspector] private ComputeShader _builderCompute = null;
 
-    [SerializeField] TextAsset _volumeData = null;
-    [SerializeField] Vector3Int _dimensions = new Vector3Int(256, 256, 113);
-    [SerializeField] float _gridScale = 4.0f / 256;
-    [SerializeField] int _triangleBudget = 65536 * 16;
+        [CreateProperty] public float TargetValue { get; set; } = 0.4f;
+        private float _builtTargetValue;
 
-    #endregion
+        private int VoxelCount => _dimensions.x * _dimensions.y * _dimensions.z;
 
-    #region Project asset references
+        private ComputeBuffer _voxelBuffer;
+        private MeshBuilder _builder;
 
-    [SerializeField, HideInInspector] ComputeShader _converterCompute = null;
-    [SerializeField, HideInInspector] ComputeShader _builderCompute = null;
+        private void Start() {
+            _voxelBuffer = new ComputeBuffer(VoxelCount, sizeof(float));
+            _builder = new MeshBuilder(_dimensions, _triangleBudget, _builderCompute);
 
-    #endregion
+            // Voxel data conversion (ushort -> float)
+            using var readBuffer = new ComputeBuffer(VoxelCount / 2, sizeof(uint));
+            readBuffer.SetData(_volumeData.bytes);
 
-    #region Target isovalue
+            _converterCompute.SetInts("Dims", _dimensions);
+            _converterCompute.SetBuffer(0, "Source", readBuffer);
+            _converterCompute.SetBuffer(0, "Voxels", _voxelBuffer);
+            _converterCompute.DispatchThreads(0, _dimensions);
 
-    [CreateProperty] public float TargetValue { get; set; } = 0.4f;
-    float _builtTargetValue;
+            // UI data source
+            FindFirstObjectByType<UIDocument>().rootVisualElement.dataSource = this;
+        }
 
-    #endregion
+        private void OnDestroy() {
+            _voxelBuffer.Dispose();
+            _builder.Dispose();
+        }
 
-    #region Private members
+        private void Update() {
+            // Rebuild the isosurface only when the target value has been changed.
+            if (TargetValue == _builtTargetValue) return;
 
-    int VoxelCount => _dimensions.x * _dimensions.y * _dimensions.z;
+            _builder.BuildIsosurface(_voxelBuffer, TargetValue, _gridScale);
+            GetComponent<MeshFilter>().sharedMesh = _builder.Mesh;
 
-    ComputeBuffer _voxelBuffer;
-    MeshBuilder _builder;
-
-    #endregion
-
-    #region MonoBehaviour implementation
-
-    void Start()
-    {
-        _voxelBuffer = new ComputeBuffer(VoxelCount, sizeof(float));
-        _builder = new MeshBuilder(_dimensions, _triangleBudget, _builderCompute);
-
-        // Voxel data conversion (ushort -> float)
-        using var readBuffer = new ComputeBuffer(VoxelCount / 2, sizeof(uint));
-        readBuffer.SetData(_volumeData.bytes);
-
-        _converterCompute.SetInts("Dims", _dimensions);
-        _converterCompute.SetBuffer(0, "Source", readBuffer);
-        _converterCompute.SetBuffer(0, "Voxels", _voxelBuffer);
-        _converterCompute.DispatchThreads(0, _dimensions);
-
-        // UI data source
-        FindFirstObjectByType<UIDocument>().rootVisualElement.dataSource = this;
+            _builtTargetValue = TargetValue;
+        }
     }
-
-    void OnDestroy()
-    {
-        _voxelBuffer.Dispose();
-        _builder.Dispose();
-    }
-
-    void Update()
-    {
-        // Rebuild the isosurface only when the target value has been changed.
-        if (TargetValue == _builtTargetValue) return;
-
-        _builder.BuildIsosurface(_voxelBuffer, TargetValue, _gridScale);
-        GetComponent<MeshFilter>().sharedMesh = _builder.Mesh;
-
-        _builtTargetValue = TargetValue;
-    }
-
-    #endregion
 }
-
-} // namespace MarchingCubes
