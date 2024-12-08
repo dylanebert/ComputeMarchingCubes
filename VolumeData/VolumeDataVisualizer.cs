@@ -9,8 +9,7 @@ namespace MarchingCubes {
         [SerializeField] private float _gridScale = 4.0f / 256;
         [SerializeField] private int _triangleBudget = 65536 * 16;
 
-        [SerializeField, HideInInspector] private ComputeShader _converterCompute = null;
-        [SerializeField, HideInInspector] private ComputeShader _builderCompute = null;
+        [SerializeField] private ComputeShader _builderCompute = null;
 
         [CreateProperty] public float TargetValue { get; set; } = 0.4f;
         private float _builtTargetValue;
@@ -24,14 +23,9 @@ namespace MarchingCubes {
             _voxelBuffer = new ComputeBuffer(VoxelCount, sizeof(float));
             _builder = new MeshBuilder(_dimensions, _triangleBudget, _builderCompute);
 
-            // Voxel data conversion (ushort -> float)
-            using var readBuffer = new ComputeBuffer(VoxelCount / 2, sizeof(uint));
-            readBuffer.SetData(_volumeData.bytes);
-
-            _converterCompute.SetInts("Dims", _dimensions);
-            _converterCompute.SetBuffer(0, "Source", readBuffer);
-            _converterCompute.SetBuffer(0, "Voxels", _voxelBuffer);
-            _converterCompute.DispatchThreads(0, _dimensions);
+            float[] voxelData = new float[VoxelCount];
+            System.Buffer.BlockCopy(_volumeData.bytes, 0, voxelData, 0, voxelData.Length * sizeof(float));
+            _voxelBuffer.SetData(voxelData);
 
             // UI data source
             FindFirstObjectByType<UIDocument>().rootVisualElement.dataSource = this;
@@ -50,6 +44,12 @@ namespace MarchingCubes {
             GetComponent<MeshFilter>().sharedMesh = _builder.Mesh;
 
             _builtTargetValue = TargetValue;
+        }
+
+        private void OnDrawGizmos() {
+            Gizmos.color = Color.gray;
+            Vector3 size = new(_dimensions.x * _gridScale, _dimensions.y * _gridScale, _dimensions.z * _gridScale);
+            Gizmos.DrawWireCube(transform.position, size);
         }
     }
 }
