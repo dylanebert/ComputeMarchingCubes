@@ -5,8 +5,8 @@ using Unity.Properties;
 namespace MarchingCubes {
     public sealed class VolumeDataVisualizer : MonoBehaviour {
         [SerializeField] private TextAsset _volumeData = null;
-        [SerializeField] private Vector3Int _dimensions = new(256, 256, 113);
-        [SerializeField] private float _gridScale = 4.0f / 256;
+        [SerializeField] private Vector3Int _dimensions = new(64, 64, 64);
+        [SerializeField] private float _gridScale = 1.0f / 64;
         [SerializeField] private int _triangleBudget = 65536 * 16;
 
         [SerializeField] private ComputeShader _builderCompute = null;
