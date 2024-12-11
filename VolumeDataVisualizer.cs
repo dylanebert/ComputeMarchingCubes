@@ -1,6 +1,7 @@
 using UnityEngine;
 
 namespace MarchingCubes {
+    [RequireComponent(typeof(MeshFilter))]
     public sealed class VolumeDataVisualizer : MonoBehaviour {
         [SerializeField] private TextAsset _volumeData = null;
         [SerializeField] private Vector3Int _dimensions = new(64, 64, 64);
