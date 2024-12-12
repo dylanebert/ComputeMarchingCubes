@@ -5,11 +5,8 @@ namespace MarchingCubes {
     public sealed class MeshBuilder : System.IDisposable {
         public Mesh Mesh => _mesh;
 
-        public MeshBuilder(int x, int y, int z, int budget, ComputeShader compute)
-          => Initialize((x, y, z), budget, compute);
-
-        public MeshBuilder(Vector3Int dims, int budget, ComputeShader compute)
-          => Initialize((dims.x, dims.y, dims.z), budget, compute);
+        public MeshBuilder(int size, int budget, ComputeShader compute)
+          => Initialize((size, size, size), budget, compute);
 
         public void Dispose()
           => ReleaseAll();
