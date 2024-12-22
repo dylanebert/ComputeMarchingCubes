@@ -4,6 +4,9 @@
 // Workaround for the absence of sizeof operator in HLSL
 #define SIZEOF_UINT 4
 #define SIZEOF_FLOAT3 12
+#define SIZEOF_FLOAT2 8
+
+float3 VolumeExtent;
 
 // Parameters
 uint3 Dims;
@@ -64,12 +67,14 @@ RWByteAddressBuffer IndexBuffer;
 RWStructuredBuffer<uint> Counter; // used only for counting
 
 // Vertex buffer accessor
-void WriteVertex(uint offset, float3 p, float3 n)
+void WriteVertex(uint offset, float3 p, float3 n, float2 uv)
 {
-    uint addr_p = offset * SIZEOF_FLOAT3 * 2;
+    uint addr_p = offset * (SIZEOF_FLOAT3 * 2 + SIZEOF_FLOAT2);
     uint addr_n = addr_p + SIZEOF_FLOAT3;
+    uint addr_uv = addr_n + SIZEOF_FLOAT3;
     VertexBuffer.Store3(addr_p, asuint(p));
     VertexBuffer.Store3(addr_n, asuint(n));
+    VertexBuffer.Store2(addr_uv, asuint(uv));
 }
 
 // Index buffer accessor
@@ -162,9 +167,13 @@ void MeshReconstruction(uint3 id : SV_DispatchThreadID)
 
         float3 normal = normalize(cross(v2 - v1, v3 - v1));
 
-        WriteVertex(vidx + 0, v1, normal);
-        WriteVertex(vidx + 1, v2, normal);
-        WriteVertex(vidx + 2, v3, normal);
+        float2 uv1 = float2(0, 0);
+        float2 uv2 = float2(1, 0);
+        float2 uv3 = float2(0, 1);
+
+        WriteVertex(vidx + 0, v1, normal, uv1);
+        WriteVertex(vidx + 1, v2, normal, uv2);
+        WriteVertex(vidx + 2, v3, normal, uv3);
         WriteIndices(vidx, uint3(vidx, vidx + 1, vidx + 2));
     }
 }
@@ -181,9 +190,9 @@ void ClearUnused(uint id : SV_DispatchThreadID)
         uint count = Counter.IncrementCounter();
         if (count >= MaxTriangle) break;
         uint vidx = count * 3;
-        WriteVertex(vidx + 0, 0, 0);
-        WriteVertex(vidx + 1, 0, 0);
-        WriteVertex(vidx + 2, 0, 0);
+        WriteVertex(vidx + 0, 0, 0, 0);
+        WriteVertex(vidx + 1, 0, 0, 0);
+        WriteVertex(vidx + 2, 0, 0, 0);
         WriteIndices(vidx, uint3(0, 0, 0));
     }
 }

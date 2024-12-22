@@ -35,11 +35,17 @@ namespace MarchingCubes {
         private void RunCompute(ComputeBuffer voxels, float target, float scale) {
             _counterBuffer.SetCounterValue(0);
 
-            // Isosurface reconstruction
+            // Set Marching Cubes parameters
             _compute.SetInts("Dims", _grids);
             _compute.SetInt("MaxTriangle", _triangleBudget);
             _compute.SetFloat("Scale", scale);
             _compute.SetFloat("Isovalue", target);
+
+            // Pass the bounding-box extent for UV generation
+            var ext = new Vector3(_grids.x, _grids.y, _grids.z) * scale;
+            _compute.SetFloats("VolumeExtent", ext.x, ext.y, ext.z);
+
+            // Bind resources
             _compute.SetBuffer(0, "TriangleTable", _triangleTable);
             _compute.SetBuffer(0, "Voxels", voxels);
             _compute.SetBuffer(0, "VertexBuffer", _vertexBuffer);
@@ -47,14 +53,13 @@ namespace MarchingCubes {
             _compute.SetBuffer(0, "Counter", _counterBuffer);
             _compute.DispatchThreads(0, _grids);
 
-            // Clear unused area of the buffers.
+            // Clear unused area
             _compute.SetBuffer(1, "VertexBuffer", _vertexBuffer);
             _compute.SetBuffer(1, "IndexBuffer", _indexBuffer);
             _compute.SetBuffer(1, "Counter", _counterBuffer);
             _compute.DispatchThreads(1, 1024, 1, 1);
 
-            // Bounding box
-            var ext = new Vector3(_grids.x, _grids.y, _grids.z) * scale;
+            // Set mesh bounds
             _mesh.bounds = new Bounds(Vector3.zero, ext);
         }
 
@@ -94,8 +99,12 @@ namespace MarchingCubes {
             var vn = new VertexAttributeDescriptor
               (VertexAttribute.Normal, VertexAttributeFormat.Float32, 3);
 
+            // Vertex UV: float32 x 2
+            var vt = new VertexAttributeDescriptor
+              (VertexAttribute.TexCoord0, VertexAttributeFormat.Float32, 2);
+
             // Vertex/index buffer formats
-            _mesh.SetVertexBufferParams(vertexCount, vp, vn);
+            _mesh.SetVertexBufferParams(vertexCount, vp, vn, vt);
             _mesh.SetIndexBufferParams(vertexCount, IndexFormat.UInt32);
 
             // Submesh initialization
