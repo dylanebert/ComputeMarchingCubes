@@ -11,8 +11,8 @@ namespace MarchingCubes {
         public void Dispose()
           => ReleaseAll();
 
-        public void BuildIsosurface(ComputeBuffer voxels, float target, float scale)
-          => RunCompute(voxels, target, scale);
+        public void BuildIsosurface(ComputeBuffer voxels, float target, float scale, float uvScale)
+          => RunCompute(voxels, target, scale, uvScale);
 
         private (int x, int y, int z) _grids;
         private int _triangleBudget;
@@ -32,7 +32,7 @@ namespace MarchingCubes {
             ReleaseMesh();
         }
 
-        private void RunCompute(ComputeBuffer voxels, float target, float scale) {
+        private void RunCompute(ComputeBuffer voxels, float target, float scale, float uvScale) {
             _counterBuffer.SetCounterValue(0);
 
             // Set Marching Cubes parameters
@@ -40,6 +40,7 @@ namespace MarchingCubes {
             _compute.SetInt("MaxTriangle", _triangleBudget);
             _compute.SetFloat("Scale", scale);
             _compute.SetFloat("Isovalue", target);
+            _compute.SetFloat("UVScale", uvScale);
 
             // Pass the bounding-box extent for UV generation
             var ext = new Vector3(_grids.x, _grids.y, _grids.z) * scale;

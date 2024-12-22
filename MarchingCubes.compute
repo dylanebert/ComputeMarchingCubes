@@ -7,6 +7,7 @@
 #define SIZEOF_FLOAT2 8
 
 float3 VolumeExtent;
+float UVScale;
 
 // Parameters
 uint3 Dims;
@@ -167,9 +168,9 @@ void MeshReconstruction(uint3 id : SV_DispatchThreadID)
 
         float3 normal = normalize(cross(v2 - v1, v3 - v1));
 
-        float2 uv1 = float2(0, 0);
-        float2 uv2 = float2(1, 0);
-        float2 uv3 = float2(0, 1);
+        float2 uv1 = float2(0, 0) * UVScale;
+        float2 uv2 = float2(1, 0) * UVScale;
+        float2 uv3 = float2(0, 1) * UVScale;
 
         WriteVertex(vidx + 0, v1, normal, uv1);
         WriteVertex(vidx + 1, v2, normal, uv2);

@@ -7,6 +7,7 @@ namespace MarchingCubes {
         public int TriangleBudget = 65536 * 16;
         public ComputeShader BuilderCompute = null;
         public float TargetValue = 0.4f;
+        public float UVScale = 1f;
 
         private ComputeBuffer _voxelBuffer;
         private MeshBuilder _builder;
@@ -31,7 +32,7 @@ namespace MarchingCubes {
         private void Update() {
             if (TargetValue == _builtTargetValue) return;
 
-            _builder.BuildIsosurface(_voxelBuffer, TargetValue, MarchingCubes.Scale);
+            _builder.BuildIsosurface(_voxelBuffer, TargetValue, MarchingCubes.Scale, UVScale);
             GetComponent<MeshFilter>().sharedMesh = _builder.Mesh;
 
             _builtTargetValue = TargetValue;
