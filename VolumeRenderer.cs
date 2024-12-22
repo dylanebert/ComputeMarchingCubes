@@ -13,7 +13,7 @@ namespace MarchingCubes {
         private float _builtTargetValue;
 
         private void Start() {
-            int paddedChunkSize = Constants.ChunkSize + 1;
+            int paddedChunkSize = MarchingCubes.ChunkSize + 1;
             int voxelCount = paddedChunkSize * paddedChunkSize * paddedChunkSize;
             _voxelBuffer = new ComputeBuffer(voxelCount, sizeof(float));
             _builder = new MeshBuilder(paddedChunkSize, TriangleBudget, BuilderCompute);
@@ -31,7 +31,7 @@ namespace MarchingCubes {
         private void Update() {
             if (TargetValue == _builtTargetValue) return;
 
-            _builder.BuildIsosurface(_voxelBuffer, TargetValue, Constants.GridScale);
+            _builder.BuildIsosurface(_voxelBuffer, TargetValue, MarchingCubes.GridScale);
             GetComponent<MeshFilter>().sharedMesh = _builder.Mesh;
 
             _builtTargetValue = TargetValue;
@@ -40,9 +40,9 @@ namespace MarchingCubes {
         private void OnDrawGizmos() {
             Gizmos.color = Color.gray;
             Vector3 size = new(
-                Constants.ChunkSize * Constants.GridScale,
-                Constants.ChunkSize * Constants.GridScale,
-                Constants.ChunkSize * Constants.GridScale
+                MarchingCubes.ChunkSize * MarchingCubes.GridScale,
+                MarchingCubes.ChunkSize * MarchingCubes.GridScale,
+                MarchingCubes.ChunkSize * MarchingCubes.GridScale
             );
             Gizmos.DrawWireCube(transform.position, size);
         }
