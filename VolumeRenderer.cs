@@ -3,7 +3,7 @@ using UnityEngine;
 namespace MarchingCubes {
     [RequireComponent(typeof(MeshFilter))]
     public sealed class VolumeRenderer : MonoBehaviour {
-        public TextAsset VolumeData = null;
+        public float[] Data = null;
         public int TriangleBudget = 65536 * 16;
         public ComputeShader BuilderCompute = null;
         public float TargetValue = 0.4f;
@@ -18,10 +18,17 @@ namespace MarchingCubes {
             int voxelCount = paddedChunkSize * paddedChunkSize * paddedChunkSize;
             _voxelBuffer = new ComputeBuffer(voxelCount, sizeof(float));
             _builder = new MeshBuilder(paddedChunkSize, TriangleBudget, BuilderCompute);
-
-            float[] voxelData = new float[voxelCount];
-            System.Buffer.BlockCopy(VolumeData.bytes, 0, voxelData, 0, voxelData.Length * sizeof(float));
-            _voxelBuffer.SetData(voxelData);
+            if (Data != null) {
+                _voxelBuffer.SetData(Data);
+            }
+            else {
+                Debug.LogWarning("No data provided for VolumeRenderer");
+                float[] voxelData = new float[voxelCount];
+                for (int i = 0; i < voxelData.Length; i++) {
+                    voxelData[i] = 0f;
+                }
+                _voxelBuffer.SetData(voxelData);
+            }
         }
 
         private void OnDestroy() {
