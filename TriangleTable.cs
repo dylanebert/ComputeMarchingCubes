@@ -1,7 +1,5 @@
 namespace MarchingCubes {
     public static class PrecalculatedData {
-        // Generated from Paul Bourke's table
-        // http://paulbourke.net/geometry/polygonise/
         public static ulong[] TriangleTable = {
             0xffffffffffffffffUL,
             0xfffffffffffff380UL,

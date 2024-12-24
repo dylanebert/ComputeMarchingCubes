@@ -2,7 +2,7 @@ using UnityEngine;
 using UnityEngine.Rendering;
 
 namespace MarchingCubes {
-    public sealed class MeshBuilder : System.IDisposable {
+    public class MeshBuilder {
         public Mesh Mesh => _mesh;
 
         public MeshBuilder(int size, int budget, ComputeShader compute)
