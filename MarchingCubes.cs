@@ -9,7 +9,6 @@ namespace MarchingCubes {
         public static MarchingCubes Instance { get; private set; }
 
         public static int ChunkSize => Instance._chunkSize;
-        public static int PaddedChunkSize => Instance._chunkSize + 1;
         public static float Scale => Instance._scale;
 
         private void OnEnable() {
