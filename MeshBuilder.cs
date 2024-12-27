@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Rendering;
 
@@ -5,122 +6,134 @@ namespace MarchingCubes {
     public class MeshBuilder {
         public Mesh Mesh => _mesh;
 
-        public MeshBuilder(int size, int budget, ComputeShader compute)
-          => Initialize((size, size, size), budget, compute);
-
-        public void Dispose()
-          => ReleaseAll();
-
-        public void BuildIsosurface(ComputeBuffer voxels, float target, float scale, float uvScale)
-          => RunCompute(voxels, target, scale, uvScale);
-
-        private (int x, int y, int z) _grids;
-        private int _triangleBudget;
-        private ComputeShader _compute;
-
-        private void Initialize((int, int, int) dims, int budget, ComputeShader compute) {
-            _grids = dims;
-            _triangleBudget = budget;
-            _compute = compute;
-
-            AllocateBuffers();
-            AllocateMesh(3 * _triangleBudget);
-        }
-
-        private void ReleaseAll() {
-            ReleaseBuffers();
-            ReleaseMesh();
-        }
-
-        private void RunCompute(ComputeBuffer voxels, float target, float scale, float uvScale) {
-            _counterBuffer.SetCounterValue(0);
-
-            // Set Marching Cubes parameters
-            _compute.SetInts("Dims", _grids);
-            _compute.SetInt("MaxTriangle", _triangleBudget);
-            _compute.SetFloat("Scale", scale);
-            _compute.SetFloat("Isovalue", target);
-            _compute.SetFloat("UVScale", uvScale);
-
-            // Pass the bounding-box extent for UV generation
-            var ext = new Vector3(_grids.x, _grids.y, _grids.z) * scale;
-            _compute.SetFloats("VolumeExtent", ext.x, ext.y, ext.z);
-
-            // Bind resources
-            _compute.SetBuffer(0, "TriangleTable", _triangleTable);
-            _compute.SetBuffer(0, "Voxels", voxels);
-            _compute.SetBuffer(0, "VertexBuffer", _vertexBuffer);
-            _compute.SetBuffer(0, "IndexBuffer", _indexBuffer);
-            _compute.SetBuffer(0, "Counter", _counterBuffer);
-            _compute.DispatchThreads(0, _grids);
-
-            // Clear unused area
-            _compute.SetBuffer(1, "VertexBuffer", _vertexBuffer);
-            _compute.SetBuffer(1, "IndexBuffer", _indexBuffer);
-            _compute.SetBuffer(1, "Counter", _counterBuffer);
-            _compute.DispatchThreads(1, 1024, 1, 1);
-
-            // Set mesh bounds
-            _mesh.bounds = new Bounds(Vector3.zero, ext);
-        }
-
-        private ComputeBuffer _triangleTable;
-        private ComputeBuffer _counterBuffer;
-
-        private void AllocateBuffers() {
-            // Marching cubes triangle table
-            _triangleTable = new ComputeBuffer(256, sizeof(ulong));
-            _triangleTable.SetData(PrecalculatedData.TriangleTable);
-
-            // Buffer for triangle counting
-            _counterBuffer = new ComputeBuffer(1, 4, ComputeBufferType.Counter);
-        }
-
-        private void ReleaseBuffers() {
-            _triangleTable.Dispose();
-            _counterBuffer.Dispose();
-        }
+        private List<Vector3> _positions = new();
+        private List<Vector3> _normals = new();
+        private List<Vector2> _uvs = new();
+        private List<int> _indices = new();
 
         private Mesh _mesh;
-        private GraphicsBuffer _vertexBuffer;
-        private GraphicsBuffer _indexBuffer;
+        private int _size;
 
-        private void AllocateMesh(int vertexCount) {
-            _mesh = new Mesh();
+        private static readonly (int, int)[] EdgeVertices = new (int, int)[12] {
+            (0, 1), (1, 2), (2, 3), (3, 0), (4, 5), (5, 6), (6, 7), (7, 4), (0, 4), (1, 5), (2, 6), (3, 7)
+        };
 
-            // We want GraphicsBuffer access as Raw (ByteAddress) buffers.
-            _mesh.indexBufferTarget |= GraphicsBuffer.Target.Raw;
-            _mesh.vertexBufferTarget |= GraphicsBuffer.Target.Raw;
+        private static readonly (int, int, int)[] CornerVertices = new (int, int, int)[8] {
+            (0, 0, 0), (1, 0, 0), (1, 1, 0), (0, 1, 0), (0, 0, 1), (1, 0, 1), (1, 1, 1), (0, 1, 1)
+        };
 
-            // Vertex position: float32 x 3
-            var vp = new VertexAttributeDescriptor
-              (VertexAttribute.Position, VertexAttributeFormat.Float32, 3);
-
-            // Vertex normal: float32 x 3
-            var vn = new VertexAttributeDescriptor
-              (VertexAttribute.Normal, VertexAttributeFormat.Float32, 3);
-
-            // Vertex UV: float32 x 2
-            var vt = new VertexAttributeDescriptor
-              (VertexAttribute.TexCoord0, VertexAttributeFormat.Float32, 2);
-
-            // Vertex/index buffer formats
-            _mesh.SetVertexBufferParams(vertexCount, vp, vn, vt);
-            _mesh.SetIndexBufferParams(vertexCount, IndexFormat.UInt32);
-
-            // Submesh initialization
-            _mesh.SetSubMesh(0, new SubMeshDescriptor(0, vertexCount),
-                             MeshUpdateFlags.DontRecalculateBounds);
-
-            // GraphicsBuffer references
-            _vertexBuffer = _mesh.GetVertexBuffer(0);
-            _indexBuffer = _mesh.GetIndexBuffer();
+        public MeshBuilder(int size) {
+            _size = size;
+            _mesh = new Mesh() {
+                indexFormat = IndexFormat.UInt32,
+            };
         }
 
-        void ReleaseMesh() {
-            _vertexBuffer.Dispose();
-            _indexBuffer.Dispose();
-            Object.Destroy(_mesh);
+        public void BuildIsosurface(float[] voxels, float isovalue, float scale, float uvScale) {
+            _positions.Clear();
+            _normals.Clear();
+            _uvs.Clear();
+            _indices.Clear();
+
+            int Index(int x, int y, int z) => x + y * _size + z * _size * _size;
+
+            for (int z = 0; z < _size - 1; z++) {
+                for (int y = 0; y < _size - 1; y++) {
+                    for (int x = 0; x < _size - 1; x++) {
+                        float[] cornerValues = new float[8];
+                        Vector3[] cornerPositions = new Vector3[8];
+                        for (int i = 0; i < 8; i++) {
+                            (int cx, int cy, int cz) = CornerVertices[i];
+
+                            int gx = cx + x;
+                            int gy = cy + y;
+                            int gz = cz + z;
+
+                            float value = voxels[Index(gx, gy, gz)];
+                            cornerValues[i] = value;
+
+                            float fx = (gx + 0.5f - _size * 0.5f) * scale;
+                            float fy = (gy + 0.5f - _size * 0.5f) * scale;
+                            float fz = (gz + 0.5f - _size * 0.5f) * scale;
+                            cornerPositions[i] = new Vector3(fx, fy, fz);
+                        }
+
+                        int cubeIndex = 0;
+                        for (int i = 0; i < 8; i++) {
+                            if (cornerValues[i] < isovalue) {
+                                cubeIndex |= 1 << i;
+                            }
+                        }
+
+                        if (cubeIndex == 0 || cubeIndex == 255) continue;
+
+                        ulong packed = PrecalculatedData.TriangleTable[cubeIndex];
+                        uint triX = (uint)(packed & 0xFFFFFFFF);
+                        uint triY = (uint)(packed >> 32);
+
+                        Vector3[] edgeVerts = new Vector3[12];
+                        for (int i = 0; i < 12; i++) {
+                            (int v0, int v1) = EdgeVertices[i];
+
+                            float valueA = cornerValues[v0];
+                            float valueB = cornerValues[v1];
+                            float t = (isovalue - valueA) / (valueB - valueA);
+
+                            edgeVerts[i] = Vector3.Lerp(cornerPositions[v0], cornerPositions[v1], t);
+                        }
+
+                        for (int i = 0; i < 15; i += 3) {
+                            int e1 = EdgeIndexFromTriangleTable(triX, triY, i);
+                            int e2 = EdgeIndexFromTriangleTable(triX, triY, i + 1);
+                            int e3 = EdgeIndexFromTriangleTable(triX, triY, i + 2);
+
+                            if (e1 == 15) break;
+
+                            int index = _positions.Count;
+
+                            Vector3 v1 = edgeVerts[e1];
+                            Vector3 v2 = edgeVerts[e2];
+                            Vector3 v3 = edgeVerts[e3];
+
+                            Vector3 normal = Vector3.Cross(v2 - v1, v3 - v1).normalized;
+
+                            Vector2 uv1 = new Vector2(0, 0) * uvScale;
+                            Vector2 uv2 = new Vector2(1, 0) * uvScale;
+                            Vector2 uv3 = new Vector2(0, 1) * uvScale;
+
+                            _positions.Add(v1);
+                            _positions.Add(v2);
+                            _positions.Add(v3);
+
+                            _normals.Add(normal);
+                            _normals.Add(normal);
+                            _normals.Add(normal);
+
+                            _uvs.Add(uv1);
+                            _uvs.Add(uv2);
+                            _uvs.Add(uv3);
+
+                            _indices.Add(index);
+                            _indices.Add(index + 1);
+                            _indices.Add(index + 2);
+                        }
+                    }
+                }
+            }
+
+            _mesh.Clear();
+
+            _mesh.SetVertices(_positions);
+            _mesh.SetNormals(_normals);
+            _mesh.SetUVs(0, _uvs);
+            _mesh.SetIndices(_indices, MeshTopology.Triangles, 0);
+
+            Vector3 extent = new Vector3(_size, _size, _size) * scale;
+            _mesh.bounds = new Bounds(Vector3.zero, extent);
+        }
+
+        private static int EdgeIndexFromTriangleTable(uint x, uint y, int index) {
+            return (int)(0xfu & (index < 8 ? x >> ((index + 0) * 4) : y >> ((index - 8) * 4)));
         }
     }
 }

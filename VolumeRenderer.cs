@@ -8,11 +8,11 @@ namespace MarchingCubes {
         public float Isovalue = 0.5f;
         public float UVScale = 1f;
 
-        private MeshBuilderCPU _builder;
+        private MeshBuilder _builder;
         private float _builtTargetValue;
 
         private void Start() {
-            _builder = new MeshBuilderCPU(MarchingCubes.ChunkSize + 1);
+            _builder = new MeshBuilder(MarchingCubes.ChunkSize + 1);
         }
 
         private void Update() {
