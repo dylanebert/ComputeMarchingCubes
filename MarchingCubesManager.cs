@@ -54,6 +54,10 @@ namespace MarchingCubes {
         }
 
         private void OnDestroy() {
+            if (_rebuildScheduled) {
+                _jobHandle.Complete();
+            }
+
             _triangleTable.Dispose();
             _edgeVertices.Dispose();
             _cornerVertices.Dispose();
