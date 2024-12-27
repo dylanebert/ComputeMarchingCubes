@@ -18,6 +18,12 @@ namespace MarchingCubes {
         private NativeArray<int2> _edgeVertices;
         private NativeArray<int3> _cornerVertices;
 
+        private JobHandle _jobHandle;
+        private NativeStream _stream;
+        private NativeArray<float> _data;
+        private bool _rebuildScheduled = false;
+        private bool _needsAllocate = false;
+
         public static MarchingCubesManager Instance { get; private set; }
 
         public static int ChunkSize => Instance._chunkSize;
@@ -39,12 +45,21 @@ namespace MarchingCubes {
             for (int i = 0; i < cornerVertices.Length; i++) {
                 _cornerVertices[i] = new int3(cornerVertices[i].Item1, cornerVertices[i].Item2, cornerVertices[i].Item3);
             }
+
+            _data = new NativeArray<float>(0, Allocator.Persistent);
+            _stream = new NativeStream(0, Allocator.Persistent);
         }
 
         private void OnDestroy() {
+            if (_rebuildScheduled) {
+                _jobHandle.Complete();
+            }
+
             _triangleTable.Dispose();
             _edgeVertices.Dispose();
             _cornerVertices.Dispose();
+            _data.Dispose();
+            _stream.Dispose();
         }
 
         private void OnEnable() {
@@ -62,27 +77,51 @@ namespace MarchingCubes {
         }
 
         private void Update() {
-            Build();
+            if (_needsAllocate) {
+                Allocate();
+                _needsAllocate = false;
+            }
+
+            if (_rebuildScheduled) {
+                if (_jobHandle.IsCompleted) {
+                    ApplyMesh();
+                    _rebuildScheduled = false;
+                }
+            }
+            else {
+                Build();
+            }
         }
 
-        private void Build() {
+        private void Allocate() {
+            _data.Dispose();
+
             int chunkCount = _volumes.Count;
             int paddedChunkSize = _chunkSize + 1;
             int chunkDims = paddedChunkSize * paddedChunkSize * paddedChunkSize;
             int totalVoxels = chunkCount * chunkDims;
-            NativeArray<float> data = new(totalVoxels, Allocator.TempJob);
+            _data = new NativeArray<float>(totalVoxels, Allocator.Persistent);
             for (int i = 0; i < chunkCount; i++) {
                 var volume = _volumes[i];
                 var voxels = volume.Data;
                 int offset = i * chunkDims;
                 for (int j = 0; j < chunkDims; j++) {
-                    data[offset + j] = voxels[j];
+                    _data[offset + j] = voxels[j];
                 }
             }
+        }
 
-            var stream = new NativeStream(chunkCount, Allocator.TempJob);
-            var job = new Job {
-                Data = data,
+        private void Build() {
+            if (_rebuildScheduled && !_jobHandle.IsCompleted) {
+                Debug.LogWarning("Job already running");
+                return;
+            }
+
+            _stream.Dispose();
+            _stream = new NativeStream(_volumes.Count, Allocator.Persistent);
+
+            _jobHandle = new Job {
+                Data = _data,
                 TriangleTable = _triangleTable,
                 EdgeVertices = _edgeVertices,
                 CornerVertices = _cornerVertices,
@@ -90,22 +129,31 @@ namespace MarchingCubes {
                 Isovalue = _isovalue,
                 Scale = _scale,
                 UVScale = _uvScale,
-                StreamWriter = stream.AsWriter(),
-            };
+                StreamWriter = _stream.AsWriter(),
+            }.Schedule(_volumes.Count, 1);
 
-            job.Schedule(chunkCount, 1).Complete();
+            _rebuildScheduled = true;
+        }
 
-            var reader = stream.AsReader();
+        private void ApplyMesh() {
+            if (!_jobHandle.IsCompleted) {
+                Debug.LogWarning("Job not completed");
+                return;
+            }
+
+            _jobHandle.Complete();
+
+            var reader = _stream.AsReader();
             for (int i = 0; i < _volumes.Count; i++) {
                 reader.BeginForEachIndex(i);
 
                 var mesh = _volumes[i].MeshFilter.sharedMesh;
                 mesh.Clear();
 
-                List<Vector3> positions = new();
-                List<Vector3> normals = new();
-                List<Vector2> uvs = new();
-                List<int> indices = new();
+                NativeList<Vector3> positions = new(Allocator.Temp);
+                NativeList<Vector3> normals = new(Allocator.Temp);
+                NativeList<Vector2> uvs = new(Allocator.Temp);
+                NativeList<int> indices = new(Allocator.Temp);
 
                 int positionsCount = reader.Read<int>();
                 for (int j = 0; j < positionsCount; j++) {
@@ -129,24 +177,28 @@ namespace MarchingCubes {
 
                 reader.EndForEachIndex();
 
-                mesh.SetVertices(positions);
-                mesh.SetNormals(normals);
-                mesh.SetUVs(0, uvs);
-                mesh.SetIndices(indices, MeshTopology.Triangles, 0);
+                mesh.SetVertices(positions.AsArray());
+                mesh.SetNormals(normals.AsArray());
+                mesh.SetUVs(0, uvs.AsArray());
+                mesh.SetIndices(indices.AsArray(), MeshTopology.Triangles, 0);
+
+                positions.Dispose();
+                normals.Dispose();
+                uvs.Dispose();
+                indices.Dispose();
 
                 _volumes[i].MeshCollider.sharedMesh = mesh;
             }
-
-            data.Dispose();
-            stream.Dispose();
         }
 
         public static void Register(MarchingCubesVolume volume) {
             Instance._volumes.Add(volume);
+            Instance._needsAllocate = true;
         }
 
         public static void Unregister(MarchingCubesVolume volume) {
             Instance._volumes.Remove(volume);
+            Instance._needsAllocate = true;
         }
 
         [BurstCompile]
