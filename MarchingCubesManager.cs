@@ -2,11 +2,11 @@ using UnityEngine;
 
 namespace MarchingCubes {
     [ExecuteInEditMode]
-    public class MarchingCubes : MonoBehaviour {
+    public class MarchingCubesManager : MonoBehaviour {
         [SerializeField] private int _chunkSize = 16;
         [SerializeField] private float _scale = 1f;
 
-        public static MarchingCubes Instance { get; private set; }
+        public static MarchingCubesManager Instance { get; private set; }
 
         public static int ChunkSize => Instance._chunkSize;
         public static float Scale => Instance._scale;
