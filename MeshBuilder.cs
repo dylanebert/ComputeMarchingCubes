@@ -1,4 +1,6 @@
 using System.Collections.Generic;
+using Unity.Collections;
+using Unity.Mathematics;
 using UnityEngine;
 using UnityEngine.Rendering;
 
@@ -14,19 +16,31 @@ namespace MarchingCubes {
         private Mesh _mesh;
         private int _size;
 
-        private static readonly (int, int)[] EdgeVertices = new (int, int)[12] {
-            (0, 1), (1, 2), (2, 3), (3, 0), (4, 5), (5, 6), (6, 7), (7, 4), (0, 4), (1, 5), (2, 6), (3, 7)
-        };
-
-        private static readonly (int, int, int)[] CornerVertices = new (int, int, int)[8] {
-            (0, 0, 0), (1, 0, 0), (1, 1, 0), (0, 1, 0), (0, 0, 1), (1, 0, 1), (1, 1, 1), (0, 1, 1)
-        };
+        [ReadOnly] private NativeArray<ulong> _triangleTable;
+        [ReadOnly] private NativeArray<int2> _edgeVertices;
+        [ReadOnly] private NativeArray<int3> _cornerVertices;
 
         public MeshBuilder(int size) {
             _size = size;
             _mesh = new Mesh() {
                 indexFormat = IndexFormat.UInt32,
             };
+
+            ulong[] triangleTable = PrecalculatedData.TriangleTable;
+            _triangleTable = new NativeArray<ulong>(triangleTable.Length, Allocator.Persistent);
+            _triangleTable.CopyFrom(triangleTable);
+
+            (int, int)[] edgeVertices = PrecalculatedData.EdgeVertices;
+            _edgeVertices = new NativeArray<int2>(edgeVertices.Length, Allocator.Persistent);
+            for (int i = 0; i < edgeVertices.Length; i++) {
+                _edgeVertices[i] = new int2(edgeVertices[i].Item1, edgeVertices[i].Item2);
+            }
+
+            (int, int, int)[] cornerVertices = PrecalculatedData.CornerVertices;
+            _cornerVertices = new NativeArray<int3>(cornerVertices.Length, Allocator.Persistent);
+            for (int i = 0; i < cornerVertices.Length; i++) {
+                _cornerVertices[i] = new int3(cornerVertices[i].Item1, cornerVertices[i].Item2, cornerVertices[i].Item3);
+            }
         }
 
         public void BuildIsosurface(float[] voxels, float isovalue, float scale, float uvScale) {
@@ -43,7 +57,7 @@ namespace MarchingCubes {
                         float[] cornerValues = new float[8];
                         Vector3[] cornerPositions = new Vector3[8];
                         for (int i = 0; i < 8; i++) {
-                            (int cx, int cy, int cz) = CornerVertices[i];
+                            (int cx, int cy, int cz) = PrecalculatedData.CornerVertices[i];
 
                             int gx = cx + x;
                             int gy = cy + y;
@@ -73,7 +87,7 @@ namespace MarchingCubes {
 
                         Vector3[] edgeVerts = new Vector3[12];
                         for (int i = 0; i < 12; i++) {
-                            (int v0, int v1) = EdgeVertices[i];
+                            (int v0, int v1) = PrecalculatedData.EdgeVertices[i];
 
                             float valueA = cornerValues[v0];
                             float valueB = cornerValues[v1];
