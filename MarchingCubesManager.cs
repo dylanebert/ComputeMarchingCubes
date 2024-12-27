@@ -23,6 +23,7 @@ namespace MarchingCubes {
         private NativeArray<float> _data;
         private bool _rebuildScheduled = false;
         private bool _needsAllocate = false;
+        private bool _needsRebuild = false;
 
         public static MarchingCubesManager Instance { get; private set; }
 
@@ -89,19 +90,21 @@ namespace MarchingCubes {
                 }
             }
             else {
-                Build();
+                if (_needsRebuild) {
+                    Build();
+                    _needsRebuild = false;
+                }
             }
         }
 
         private void Allocate() {
             _data.Dispose();
 
-            int chunkCount = _volumes.Count;
             int paddedChunkSize = _chunkSize + 1;
             int chunkDims = paddedChunkSize * paddedChunkSize * paddedChunkSize;
-            int totalVoxels = chunkCount * chunkDims;
+            int totalVoxels = _volumes.Count * chunkDims;
             _data = new NativeArray<float>(totalVoxels, Allocator.Persistent);
-            for (int i = 0; i < chunkCount; i++) {
+            for (int i = 0; i < _volumes.Count; i++) {
                 var volume = _volumes[i];
                 var voxels = volume.Data;
                 int offset = i * chunkDims;
@@ -194,11 +197,13 @@ namespace MarchingCubes {
         public static void Register(MarchingCubesVolume volume) {
             Instance._volumes.Add(volume);
             Instance._needsAllocate = true;
+            Instance._needsRebuild = true;
         }
 
         public static void Unregister(MarchingCubesVolume volume) {
             Instance._volumes.Remove(volume);
             Instance._needsAllocate = true;
+            Instance._needsRebuild = true;
         }
 
         [BurstCompile]
