@@ -1,6 +1,4 @@
 using System.Collections.Generic;
-using Unity.Collections;
-using Unity.Mathematics;
 using UnityEngine;
 using UnityEngine.Rendering;
 
@@ -16,31 +14,11 @@ namespace MarchingCubes {
         private Mesh _mesh;
         private int _size;
 
-        [ReadOnly] private NativeArray<ulong> _triangleTable;
-        [ReadOnly] private NativeArray<int2> _edgeVertices;
-        [ReadOnly] private NativeArray<int3> _cornerVertices;
-
         public MeshBuilder(int size) {
             _size = size;
             _mesh = new Mesh() {
                 indexFormat = IndexFormat.UInt32,
             };
-
-            ulong[] triangleTable = PrecalculatedData.TriangleTable;
-            _triangleTable = new NativeArray<ulong>(triangleTable.Length, Allocator.Persistent);
-            _triangleTable.CopyFrom(triangleTable);
-
-            (int, int)[] edgeVertices = PrecalculatedData.EdgeVertices;
-            _edgeVertices = new NativeArray<int2>(edgeVertices.Length, Allocator.Persistent);
-            for (int i = 0; i < edgeVertices.Length; i++) {
-                _edgeVertices[i] = new int2(edgeVertices[i].Item1, edgeVertices[i].Item2);
-            }
-
-            (int, int, int)[] cornerVertices = PrecalculatedData.CornerVertices;
-            _cornerVertices = new NativeArray<int3>(cornerVertices.Length, Allocator.Persistent);
-            for (int i = 0; i < cornerVertices.Length; i++) {
-                _cornerVertices[i] = new int3(cornerVertices[i].Item1, cornerVertices[i].Item2, cornerVertices[i].Item3);
-            }
         }
 
         public void BuildIsosurface(float[] voxels, float isovalue, float scale, float uvScale) {

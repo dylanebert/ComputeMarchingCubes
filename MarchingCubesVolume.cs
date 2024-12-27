@@ -3,21 +3,31 @@ using UnityEngine;
 using static MarchingCubes.MarchingCubesManager;
 
 namespace MarchingCubes {
+    [RequireComponent(typeof(MeshFilter), typeof(MeshCollider))]
     public class MarchingCubesVolume : MonoBehaviour {
         public float[] Data = null;
-        public float Isovalue = 0.5f;
-        public float UVScale = 1f;
 
-        private MeshBuilder _builder;
+        private MeshFilter _meshFilter;
+        private MeshCollider _meshCollider;
 
-        private void Start() {
-            _builder = new MeshBuilder(ChunkSize + 1);
+        public MeshFilter MeshFilter => _meshFilter;
+        public MeshCollider MeshCollider => _meshCollider;
+
+        private void Awake() {
+            _meshFilter = GetComponent<MeshFilter>();
+            _meshCollider = GetComponent<MeshCollider>();
+
+            var mesh = new Mesh();
+            _meshFilter.sharedMesh = mesh;
+            _meshCollider.sharedMesh = mesh;
         }
 
-        private void Update() {
-            _builder.BuildIsosurface(Data, Isovalue, Scale, UVScale);
-            GetComponent<MeshFilter>().sharedMesh = _builder.Mesh;
-            GetComponent<MeshCollider>().sharedMesh = _builder.Mesh;
+        private void OnEnable() {
+            Register(this);
+        }
+
+        private void OnDisable() {
+            Unregister(this);
         }
 
         private void OnDrawGizmos() {
