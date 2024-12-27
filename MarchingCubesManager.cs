@@ -17,10 +17,10 @@ namespace MarchingCubes {
         private NativeArray<ulong> _triangleTable;
         private NativeArray<int2> _edgeVertices;
         private NativeArray<int3> _cornerVertices;
+        private NativeArray<float> _data;
+        private NativeStream _stream;
 
         private JobHandle _jobHandle;
-        private NativeStream _stream;
-        private NativeArray<float> _data;
         private bool _rebuildScheduled = false;
         private bool _needsAllocate = false;
         private bool _needsRebuild = false;

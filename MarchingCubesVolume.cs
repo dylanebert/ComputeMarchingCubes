@@ -22,6 +22,16 @@ namespace MarchingCubes {
             _meshCollider.sharedMesh = mesh;
         }
 
+        private void OnDestroy() {
+            if (_meshFilter.sharedMesh != null) {
+                DestroyImmediate(_meshFilter.sharedMesh);
+            }
+
+            if (_meshCollider.sharedMesh != null) {
+                DestroyImmediate(_meshCollider.sharedMesh);
+            }
+        }
+
         private void OnEnable() {
             Register(this);
         }
