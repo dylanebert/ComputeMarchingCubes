@@ -31,6 +31,8 @@ namespace MarchingCubes {
         public static float Scale => Instance._scale;
 
         private void Awake() {
+            Instance = this;
+
             ulong[] triangleTable = PrecalculatedData.TriangleTable;
             _triangleTable = new NativeArray<ulong>(triangleTable.Length, Allocator.Persistent);
             _triangleTable.CopyFrom(triangleTable);
@@ -52,29 +54,11 @@ namespace MarchingCubes {
         }
 
         private void OnDestroy() {
-            if (_rebuildScheduled) {
-                _jobHandle.Complete();
-            }
-
             _triangleTable.Dispose();
             _edgeVertices.Dispose();
             _cornerVertices.Dispose();
             _data.Dispose();
             _stream.Dispose();
-        }
-
-        private void OnEnable() {
-            if (Instance != null && Instance != this) {
-                Debug.LogWarning("Multiple MarchingCubes instances found in scene. Destroying duplicate.");
-#if UNITY_EDITOR
-                DestroyImmediate(gameObject);
-#else
-                Destroy(gameObject);
-#endif
-                return;
-            }
-
-            Instance = this;
         }
 
         private void Update() {
@@ -98,6 +82,11 @@ namespace MarchingCubes {
         }
 
         private void Allocate() {
+            if (_rebuildScheduled && !_jobHandle.IsCompleted) {
+                Debug.LogWarning("Job already running. Forcing completion.");
+                _jobHandle.Complete();
+            }
+
             _data.Dispose();
 
             int paddedChunkSize = _chunkSize + 1;
