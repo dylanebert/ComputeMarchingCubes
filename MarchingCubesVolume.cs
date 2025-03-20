@@ -1,7 +1,5 @@
 using UnityEngine;
 
-using static MarchingCubes.MarchingCubesManager;
-
 namespace MarchingCubes {
     [RequireComponent(typeof(MeshFilter), typeof(MeshCollider))]
     public class MarchingCubesVolume : MonoBehaviour {
@@ -33,19 +31,21 @@ namespace MarchingCubes {
         }
 
         private void OnEnable() {
-            Register(this);
+            MarchingCubesManager.Register(this);
         }
 
         private void OnDisable() {
-            Unregister(this);
+            MarchingCubesManager.Unregister(this);
         }
 
         private void OnDrawGizmos() {
             Gizmos.color = Color.gray;
+            int chunkSize = MarchingCubesManager.Instance.ChunkSize;
+            float scale = MarchingCubesManager.Instance.Scale;
             Vector3 size = new(
-                ChunkSize * Scale,
-                ChunkSize * Scale,
-                ChunkSize * Scale
+                chunkSize * scale,
+                chunkSize * scale,
+                chunkSize * scale
             );
             Gizmos.DrawWireCube(transform.position, size);
         }

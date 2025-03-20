@@ -1,5 +1,5 @@
 namespace MarchingCubes {
-    public static class PrecalculatedData {
+    public static class Constants {
         public static readonly ulong[] TriangleTable = {
             0xffffffffffffffffUL,
             0xfffffffffffff380UL,

@@ -7,10 +7,10 @@ using UnityEngine;
 
 namespace MarchingCubes {
     public class MarchingCubesManager : MonoBehaviour {
-        [SerializeField] private int _chunkSize = 16;
-        [SerializeField] private float _scale = 1f;
-        [SerializeField] private float _isovalue = 0.5f;
-        [SerializeField] private float _uvScale = 1f;
+        public int ChunkSize = 16;
+        public float Scale = 1f;
+        public float Isovalue = 0.5f;
+        public float UVScale = 1f;
 
         private List<MarchingCubesVolume> _volumes = new();
 
@@ -27,23 +27,20 @@ namespace MarchingCubes {
 
         public static MarchingCubesManager Instance { get; private set; }
 
-        public static int ChunkSize => Instance._chunkSize;
-        public static float Scale => Instance._scale;
-
         private void Awake() {
             Instance = this;
 
-            ulong[] triangleTable = PrecalculatedData.TriangleTable;
+            ulong[] triangleTable = Constants.TriangleTable;
             _triangleTable = new NativeArray<ulong>(triangleTable.Length, Allocator.Persistent);
             _triangleTable.CopyFrom(triangleTable);
 
-            (int, int)[] edgeVertices = PrecalculatedData.EdgeVertices;
+            (int, int)[] edgeVertices = Constants.EdgeVertices;
             _edgeVertices = new NativeArray<int2>(edgeVertices.Length, Allocator.Persistent);
             for (int i = 0; i < edgeVertices.Length; i++) {
                 _edgeVertices[i] = new int2(edgeVertices[i].Item1, edgeVertices[i].Item2);
             }
 
-            (int, int, int)[] cornerVertices = PrecalculatedData.CornerVertices;
+            (int, int, int)[] cornerVertices = Constants.CornerVertices;
             _cornerVertices = new NativeArray<int3>(cornerVertices.Length, Allocator.Persistent);
             for (int i = 0; i < cornerVertices.Length; i++) {
                 _cornerVertices[i] = new int3(cornerVertices[i].Item1, cornerVertices[i].Item2, cornerVertices[i].Item3);
@@ -93,7 +90,7 @@ namespace MarchingCubes {
 
             _data.Dispose();
 
-            int paddedChunkSize = _chunkSize + 1;
+            int paddedChunkSize = ChunkSize + 1;
             int chunkDims = paddedChunkSize * paddedChunkSize * paddedChunkSize;
             int totalVoxels = _volumes.Count * chunkDims;
             _data = new NativeArray<float>(totalVoxels, Allocator.Persistent);
@@ -121,10 +118,10 @@ namespace MarchingCubes {
                 TriangleTable = _triangleTable,
                 EdgeVertices = _edgeVertices,
                 CornerVertices = _cornerVertices,
-                ChunkSize = _chunkSize + 1,
-                Isovalue = _isovalue,
-                Scale = _scale,
-                UVScale = _uvScale,
+                ChunkSize = ChunkSize + 1,
+                Isovalue = Isovalue,
+                Scale = Scale,
+                UVScale = UVScale,
                 StreamWriter = _stream.AsWriter(),
             }.Schedule(_volumes.Count, 1);
 
