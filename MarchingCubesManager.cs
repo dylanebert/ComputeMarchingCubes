@@ -105,9 +105,9 @@ namespace MarchingCubes {
         }
 
         private void Build() {
-            if (_rebuildScheduled && !_jobHandle.IsCompleted) {
-                Debug.LogWarning("Job already running");
-                return;
+            if (_rebuildScheduled) {
+                _jobHandle.Complete();
+                _rebuildScheduled = false;
             }
 
             _stream.Dispose();
@@ -192,6 +192,17 @@ namespace MarchingCubes {
 
         public static void Unregister(MarchingCubesVolume volume) {
             Instance._volumes.Remove(volume);
+            Instance._needsAllocate = true;
+            Instance._needsRebuild = true;
+        }
+
+        public static void Clear() {
+            if (Instance._rebuildScheduled) {
+                Instance._jobHandle.Complete();
+                Instance._rebuildScheduled = false;
+            }
+
+            Instance._volumes.Clear();
             Instance._needsAllocate = true;
             Instance._needsRebuild = true;
         }
